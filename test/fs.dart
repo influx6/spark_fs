@@ -13,15 +13,19 @@ void main(){
    SparkUtils.register();
 
    var n =  Sparkflow.create('fs-test','a basic test fbp fs');
-   n.use('spark.fs/protocols/appendfile','cf');
+   n.use('spark.fs/protocols/createfile','cf');
    n.use('spark.fs/protocols/openfile','rf');
    n.use('spark.fs/protocols/writedir','dir');
 
    n.alwaysSchedulePacket('dir','io:conf',{ 'file':'./' });
    n.alwaysSchedulePacket('cf','io:conf',{ 'file':'./suckerbox.txt' });
-   n.alwaysSchedulePacket('rf','io:conf',{ 'auto':true,'file':'./suckerbox.txt' });
+   n.alwaysSchedulePacket('rf','io:conf',{ 'auto':false,'file':'./suckerbox.txt' });
 
    n.boot().then((_){
+
+     _.tapData('cf','io:stream',(n){
+       _.schedulePacket('rf','io:kick',true);
+     });
 
      _.tapData('rf','io:stream',(n) => Funcs.tagLog('rf-stream',n));
      _.tapData('rf','io:stream',(n) => Funcs.tagLog('rf-stream-data',UTF8.decode(n.data)));
@@ -30,6 +34,7 @@ void main(){
 
      _.schedulePacket('cf','io:stream','thank you lord!\n');
      _.schedulePacket('dir','io:stream','wall/books/shelf');
+
 
    });
 
