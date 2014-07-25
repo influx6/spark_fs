@@ -16,24 +16,29 @@ void main(){
    n.use('spark.fs/protocols/createfile','cf');
    n.use('spark.fs/protocols/openfile','rf');
    n.use('spark.fs/protocols/writedir','dir');
+   n.use('spark.fs/protocols/opendir','od');
 
    n.alwaysSchedulePacket('dir','io:conf',{ 'file':'./' });
    n.alwaysSchedulePacket('cf','io:conf',{ 'file':'./suckerbox.txt' });
+   n.alwaysSchedulePacket('od','io:conf',{ 'auto': false,'file':'./' });
    n.alwaysSchedulePacket('rf','io:conf',{ 'auto':false,'file':'./suckerbox.txt' });
 
    n.boot().then((_){
 
      _.tapData('cf','io:stream',(n){
        _.schedulePacket('rf','io:kick',true);
+       _.schedulePacket('od','io:kick',true);
      });
 
      _.tapData('rf','io:stream',(n) => Funcs.tagLog('rf-stream',n));
      _.tapData('rf','io:stream',(n) => Funcs.tagLog('rf-stream-data',UTF8.decode(n.data)));
      _.tapData('cf','io:stream',Funcs.tag('cf-stream'));
      _.tapData('dir','io:stream',Funcs.tag('dir-stream'));
+     _.tapData('od','io:stream',(n) => Funcs.tagLog('opendir-stream',n));
 
      _.schedulePacket('cf','io:stream','thank you lord!\n');
      _.schedulePacket('dir','io:stream','wall/books/shelf');
+     _.schedulePacket('od','io:path','./wall');
 
 
    });
