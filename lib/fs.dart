@@ -123,7 +123,7 @@ class Fs{
 
           e.sd.update('init',(n){
             try{
-              e.sd.update('fs',GuardedFs.create(conf.get('file')));
+              e.sd.update('fs',GuardedDirectory.create(conf.get('file'),false));
             }catch(f){
               e.port('io:error').send(f);
             }
@@ -133,9 +133,9 @@ class Fs{
              if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
                 e.port('io:path').pause();
                  var count = 0;
-                 e.sd.get('fs').list().listen((e){
+                 e.sd.get('fs').list().listen((f){
                    e.port('io:stream').beginGroup(count);
-                   e.port('io:stream').send(e);
+                   e.port('io:stream').send(f);
                    e.port('io:stream').endGroup(count);
                    count += 1;
                 },onDone:(){
