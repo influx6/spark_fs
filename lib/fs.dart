@@ -16,7 +16,7 @@ class Fs{
       
      Sparkflow.createRegistry('spark.fs',(r){
 
-       r.addMutation('protocols/fs',(e){
+       r.addMutation('protocols/_fs',(e){
           e.meta('desc','component to handle all fs operations');
 
           e.sd.add('kicking',false);
@@ -64,7 +64,7 @@ class Fs{
        });
 
 
-       r.addBaseMutation('protocols/fs','protocols/controller',(e){
+       r.addBaseMutation('protocols/_fs','protocols/_controller',(e){
           e.meta('desc','provides the central control port logic for all fs startup');
 
           var conf = e.sd.get('conf');
@@ -76,7 +76,7 @@ class Fs{
 
        });
 
-       r.addBaseMutation('protocols/controller','protocols/readers',(e){
+       r.addBaseMutation('protocols/_controller','protocols/_readers',(e){
 
           e.makeOutport('io:stream');
           e.makeInport('io:readkick');
@@ -96,7 +96,7 @@ class Fs{
           });
        });
 
-       r.addBaseMutation('protocols/controller','protocols/writers',(e){
+       r.addBaseMutation('protocols/_controller','protocols/_writers',(e){
 
           e.makeInport('io:writekick');
           e.makeInport('io:stream');
@@ -116,7 +116,7 @@ class Fs{
           });
        });
 
-       r.addBaseMutation('protocols/readers','protocols/opendir',(e){
+       r.addBaseMutation('protocols/_readers','protocols/opendir',(e){
           e.meta('desc','component to handle all dir operations');
 
           var conf = e.sd.get('conf');
@@ -149,7 +149,7 @@ class Fs{
 
        });
 
-       r.addBaseMutation('protocols/writers','protocols/writedir',(e){
+       r.addBaseMutation('protocols/_writers','protocols/writedir',(e){
           e.meta('desc','component to handle all dir operations');
 
           var conf = e.sd.get('conf');
@@ -182,7 +182,7 @@ class Fs{
 
        });
 
-       r.addBaseMutation('protocols/readers','protocols/filereaders',(e){
+       r.addBaseMutation('protocols/_readers','protocols/_filereaders',(e){
           e.meta('desc','component to handle all file reading operations');
 
           var conf = e.sd.get('conf');
@@ -219,7 +219,7 @@ class Fs{
 
        });
 
-       r.addBaseMutation('protocols/writers','protocols/filewriters',(e){
+       r.addBaseMutation('protocols/_writers','protocols/_filewriters',(e){
           e.meta('desc','component to handle all file reading operations');
 
           var conf = e.sd.get('conf');
@@ -243,7 +243,7 @@ class Fs{
 
        });
 
-       r.addBaseMutation('protocols/filewriters','protocols/fileInputers',(e){
+       r.addBaseMutation('protocols/_filewriters','protocols/_fileInputers',(e){
           e.meta('desc','component to create a new file');
 
           var conf = e.sd.get('conf');
@@ -259,7 +259,7 @@ class Fs{
 
        });
 
-       r.addBaseMutation('protocols/fileInputers','protocols/createfile',(e){
+       r.addBaseMutation('protocols/_fileInputers','protocols/createfile',(e){
           e.meta('desc','component to create a new file');
 
           var conf = e.sd.get('conf');
@@ -272,7 +272,7 @@ class Fs{
 
        });
 
-       r.addBaseMutation('protocols/fileInputers','protocols/appendfile',(e){
+       r.addBaseMutation('protocols/_fileInputers','protocols/appendfile',(e){
           e.meta('desc','component to create a new file');
 
           var conf = e.sd.get('conf');
@@ -291,7 +291,7 @@ class Fs{
 
        });
 
-       r.addBaseMutation('protocols/filereaders','protocols/openfile',(e){
+       r.addBaseMutation('protocols/_filereaders','protocols/openfile',(e){
           e.meta('desc','component to handle exisiting file reading operations');
 
           var conf = e.sd.get('conf');
