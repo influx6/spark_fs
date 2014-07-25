@@ -35,11 +35,11 @@ void main(){
      _.tapData('cf','io:stream',Funcs.tag('cf-stream'));
      _.tapData('dir','io:stream',Funcs.tag('dir-stream'));
      _.tapData('od','io:stream',(n) => Funcs.tagLog('opendir-stream',n));
+     _.tapData('od','io:stream',(n) => Funcs.tagLog('opendir-stream',n.data.absolute.path));
 
      _.schedulePacket('cf','io:stream','thank you lord!\n');
      _.schedulePacket('dir','io:stream','wall/books/shelf');
      _.schedulePacket('od','io:path','./wall');
-
 
    });
 

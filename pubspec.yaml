@@ -6,6 +6,7 @@ dependencies:
   sparkflow: any
   hub: any
   bass: any
+  path: any
   spark_utils: any
   guardedfs: any
 dependency_overrides:

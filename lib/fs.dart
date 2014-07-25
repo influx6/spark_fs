@@ -52,6 +52,8 @@ class Fs{
           e.port('io:conf').tap((n){
             conf.storage = n.data;
             e.port('io:path').send(conf.has('path') ? conf.get('path') : conf.get('file'));
+            if(!conf.has('lockRoot')) conf.update('lockRoot',false);
+            if(!conf.has('readOnly')) conf.update('readOnly',false);
           });
 
           e.port('io:path').tap((n){
@@ -114,72 +116,6 @@ class Fs{
           e.port('io:kick').tap((n){
             e.port('io:writekick').send(true);
           });
-       });
-
-       r.addBaseMutation('protocols/_readers','protocols/opendir',(e){
-          e.meta('desc','component to handle all dir operations');
-
-          var conf = e.sd.get('conf');
-
-          e.sd.update('init',(n){
-            try{
-              e.sd.update('fs',GuardedDirectory.create(conf.get('file'),false));
-            }catch(f){
-              e.port('io:error').send(f);
-            }
-          });
-
-          e.port('io:readkick').tap((n){
-             if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
-                e.port('io:path').pause();
-                 var count = 0;
-                 e.sd.get('fs').list().listen((f){
-                   e.port('io:stream').beginGroup(count);
-                   e.port('io:stream').send(f);
-                   e.port('io:stream').endGroup(count);
-                   count += 1;
-                },onDone:(){
-                  e.port('io:stream').endStream();
-                },onError:(f){
-                  e.port('io:error').send(f);
-                  e.port('io:stream').endStream();
-                });
-             }
-          });
-
-       });
-
-       r.addBaseMutation('protocols/_writers','protocols/writedir',(e){
-          e.meta('desc','component to handle all dir operations');
-
-          var conf = e.sd.get('conf');
-
-          e.sd.update('init',(n){
-            try{
-              e.sd.update('fs',GuardedDirectory.create(conf.get('file'),false));
-            }catch(f){
-              e.port('io:error').send(f);
-            }
-          });
-
-          e.port('io:writekick').tap((n){
-            e.port('io:path').pause();
-            e.port('io:stream').resume();
-          });
-
-
-          e.port('io:stream').tapEnd((n){
-            e.port('io:path').resume();
-          });
-
-          e.port('io:stream').forceCondition(Valids.isString);
-
-          e.port('io:stream').tapData((n){
-            e.sd.get('fs').createNewDir(n.data,true).then((dir){
-                e.port('io:stream').endStream();
-            });
-          });
-
        });
 
        r.addBaseMutation('protocols/_readers','protocols/_filereaders',(e){
@@ -255,6 +191,72 @@ class Fs{
 
           e.port('io:stream').tapEnd((n){
             e.sd.get('writer').close();
+          });
+
+       });
+
+       r.addBaseMutation('protocols/_readers','protocols/opendir',(e){
+          e.meta('desc','component to handle all dir operations');
+
+          var conf = e.sd.get('conf');
+
+          e.sd.update('init',(n){
+            try{
+              e.sd.update('fs',GuardedDirectory.create(conf.get('file'),conf.get('readOnly'),conf.get('lockRoot')));
+            }catch(f){
+              e.port('io:error').send(f);
+            }
+          });
+
+          e.port('io:readkick').tap((n){
+             if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
+                e.port('io:path').pause();
+                 var count = 0;
+                 e.sd.get('fs').list().listen((f){
+                   e.port('io:stream').beginGroup(count);
+                   e.port('io:stream').send(f);
+                   e.port('io:stream').endGroup(count);
+                   count += 1;
+                },onDone:(){
+                  e.port('io:stream').endStream();
+                },onError:(f){
+                  e.port('io:error').send(f);
+                  e.port('io:stream').endStream();
+                });
+             }
+          });
+
+       });
+
+       r.addBaseMutation('protocols/_writers','protocols/writedir',(e){
+          e.meta('desc','component to handle all dir operations');
+
+          var conf = e.sd.get('conf');
+
+          e.sd.update('init',(n){
+            try{
+              e.sd.update('fs',GuardedDirectory.create(conf.get('file'),conf.get('readOnly'),conf.get('lockRoot')));
+            }catch(f){
+              e.port('io:error').send(f);
+            }
+          });
+
+          e.port('io:writekick').tap((n){
+            e.port('io:path').pause();
+            e.port('io:stream').resume();
+          });
+
+
+          e.port('io:stream').tapEnd((n){
+            e.port('io:path').resume();
+          });
+
+          e.port('io:stream').forceCondition(Valids.isString);
+
+          e.port('io:stream').tapData((n){
+            e.sd.get('fs').createNewDir(n.data,true).then((dir){
+                e.port('io:stream').endStream();
+            });
           });
 
        });
