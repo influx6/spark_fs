@@ -51,7 +51,6 @@ class Fs{
 
           e.port('io:path').tap((n){
             conf.update('file',n.data);
-            e.sd.update('fs',GuardedFile.create(n.data));
           });
 
           e.port('io:path').tap((n){
@@ -101,8 +100,8 @@ class Fs{
           e.sd.update('init',(n){
             try{
               e.sd.update('fs',GuardedFs.create(conf.get('file')));
-            }catch(e){
-              e.port('io:error').send(e);
+            }catch(f){
+              e.port('io:error').send(f);
             }
           });
 
@@ -115,10 +114,10 @@ class Fs{
                e.port('io:stream').endGroup(count);
                count += 1;
             },onDone:(){
-              e.port('io:stream').end();
-            },onError:(e){
-              e.port('io:error').send(e);
-              e.port('io:stream').end();
+              e.port('io:stream').endStream();
+            },onError:(f){
+              e.port('io:error').send(f);
+              e.port('io:stream').endStream();
             });
           });
 
@@ -128,6 +127,14 @@ class Fs{
           e.meta('desc','component to handle all dir operations');
 
           var conf = e.sd.get('conf');
+
+          e.sd.update('init',(n){
+            try{
+              e.sd.update('fs',GuardedDirectory.create(conf.get('file'),false));
+            }catch(f){
+              e.port('io:error').send(f);
+            }
+          });
 
           e.port('io:writekick').tap((n){
             e.port('io:path').pause();
@@ -142,15 +149,14 @@ class Fs{
             e.port('io:path').resume();
           });
 
+          e.port('io:stream').forceCondition(Valids.isString);
+
           e.port('io:stream').tapData((n){
             e.sd.get('fs').createNewDir(n.data,true).then((dir){
-                e.port('io:stream').end();
+                e.port('io:stream').endStream();
             });
           });
 
-          e.port('io:stream').tapEnd((n){
-            e.sd.get('writer').close();
-          });
        });
 
        r.addBaseMutation('protocols/readers','protocols/filereaders',(e){
@@ -161,24 +167,24 @@ class Fs{
           e.sd.update('init',(n){
             try{
               e.sd.update('fs',GuardedFile.create(conf.get('file'),true));
-            }catch(e){
-              e.port('io:error').send(e);
+            }catch(f){
+              e.port('io:error').send(f);
             }
           });
 
           e.port('io:readkick').tap((n){
             e.port('io:path').pause();
              var count = 0;
-             e.sd.get('fs').openRead().listen((e){
+             e.sd.get('fs').openRead().listen((f){
                e.port('io:stream').beginGroup(count);
-               e.port('io:stream').send(e);
+               e.port('io:stream').send(f);
                e.port('io:stream').endGroup(count);
                count += 1;
             },onDone:(){
-              e.port('io:stream').end();
-            },onError:(e){
-              e.port('io:error').send(e);
-              e.port('io:stream').end();
+              e.port('io:stream').endStream();
+            },onError:(v){
+              e.port('io:error').send(v);
+              e.port('io:stream').endStream();
             });
           });
 
@@ -199,9 +205,9 @@ class Fs{
 
           e.sd.update('init',(n){
             try{
-              e.sd.update('fs',GuardedFile.create(conf.get('file',false)));
-            }catch(e){
-              e.port('io:error').send(e);
+              e.sd.update('fs',GuardedFile.create(conf.get('file'),false));
+            }catch(f){
+              e.port('io:error').send(f);
             }
           });
 
@@ -255,8 +261,8 @@ class Fs{
           e.sd.update('init',(n){
             try{
               e.sd.update('fs',GuardedFile.use(conf.get('file'),false));
-            }catch(e){
-              e.port('io:error').send(e);
+            }catch(f){
+              e.port('io:error').send(f);
             }
           });
 
@@ -273,9 +279,9 @@ class Fs{
 
           e.sd.update('init',(n){
             try{
-              e.sd.update('fs',GuardedFile.use(conf.get('file'),true));
-            }catch(e){
-              e.port('io:error').send(e);
+              e.sd.update('fs',GuardedFile.create(conf.get('file'),true));
+            }catch(f){
+              e.port('io:error').send(f);
             }
           });
 
