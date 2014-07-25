@@ -31,6 +31,7 @@ class Fs{
           var conf = e.sd.get('conf');
           
           e.createSpace('io');
+          e.makeInport('io:kick');
           e.makeInport('io:conf');
           e.makeInport('io:path');
           e.makeOutport('io:error');
@@ -38,6 +39,10 @@ class Fs{
 
           e.port('io:path').forceCondition(Valids.isString);
           e.port('io:conf').forceCondition(Valids.isMap);
+          e.port('io:kick').forceCondition((n){
+            if(conf.has('file')) return true;
+            return false;
+          });
 
           e.port('io:conf').forceCondition((m){
             if(m.containsKey('path') || m.containsKey('file')) return true;
@@ -53,12 +58,25 @@ class Fs{
             conf.update('file',n.data);
           });
 
-          e.port('io:path').tap((n){
-             e.sd.get('init')(n);
+          e.port('io:kick').tap((n){
+            e.sd.get('init')(n);
           });
        });
 
-       r.addBaseMutation('protocols/fs','protocols/readers',(e){
+
+       r.addBaseMutation('protocols/fs','protocols/controller',(e){
+          e.meta('desc','provides the central control port logic for all fs startup');
+
+          var conf = e.sd.get('conf');
+
+          e.port('io:path').tap((n){
+              if(conf.has('auto') && Valids.isFalse(conf.get('auto'))) return null;
+              e.port('io:kick').send(true);
+          });
+
+       });
+
+       r.addBaseMutation('protocols/controller','protocols/readers',(e){
 
           e.makeOutport('io:stream');
           e.makeInport('io:readkick');
@@ -73,9 +91,12 @@ class Fs{
             e.sd.update('kicking',false);
           });
 
+          e.port('io:kick').tap((n){
+            e.port('io:readkick').send(true);
+          });
        });
 
-       r.addBaseMutation('protocols/fs','protocols/writers',(e){
+       r.addBaseMutation('protocols/controller','protocols/writers',(e){
 
           e.makeInport('io:writekick');
           e.makeInport('io:stream');
@@ -90,6 +111,9 @@ class Fs{
             e.sd.update('kicking',false);
           });
 
+          e.port('io:kick').tap((n){
+            e.port('io:writekick').send(true);
+          });
        });
 
        r.addBaseMutation('protocols/readers','protocols/opendir',(e){
@@ -106,19 +130,21 @@ class Fs{
           });
 
           e.port('io:readkick').tap((n){
-            e.port('io:path').pause();
-             var count = 0;
-             e.sd.get('fs').list().listen((e){
-               e.port('io:stream').beginGroup(count);
-               e.port('io:stream').send(e);
-               e.port('io:stream').endGroup(count);
-               count += 1;
-            },onDone:(){
-              e.port('io:stream').endStream();
-            },onError:(f){
-              e.port('io:error').send(f);
-              e.port('io:stream').endStream();
-            });
+             if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
+                e.port('io:path').pause();
+                 var count = 0;
+                 e.sd.get('fs').list().listen((e){
+                   e.port('io:stream').beginGroup(count);
+                   e.port('io:stream').send(e);
+                   e.port('io:stream').endGroup(count);
+                   count += 1;
+                },onDone:(){
+                  e.port('io:stream').endStream();
+                },onError:(f){
+                  e.port('io:error').send(f);
+                  e.port('io:stream').endStream();
+                });
+             }
           });
 
        });
@@ -141,9 +167,6 @@ class Fs{
             e.port('io:stream').resume();
           });
 
-          e.port('io:path').tap((n){
-              e.port('io:writekick').send(true);
-          });
 
           e.port('io:stream').tapEnd((n){
             e.port('io:path').resume();
@@ -175,21 +198,19 @@ class Fs{
           e.port('io:readkick').tap((n){
             e.port('io:path').pause();
              var count = 0;
-             e.sd.get('fs').openRead().listen((f){
-               e.port('io:stream').beginGroup(count);
-               e.port('io:stream').send(f);
-               e.port('io:stream').endGroup(count);
-               count += 1;
-            },onDone:(){
-              e.port('io:stream').endStream();
-            },onError:(v){
-              e.port('io:error').send(v);
-              e.port('io:stream').endStream();
-            });
-          });
-
-          e.port('io:path').tap((n){
-              e.port('io:readkick').send(true);
+             if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
+                 e.sd.get('fs').openRead().listen((f){
+                   e.port('io:stream').beginGroup(count);
+                   e.port('io:stream').send(f);
+                   e.port('io:stream').endGroup(count);
+                   count += 1;
+                },onDone:(){
+                  e.port('io:stream').endStream();
+                },onError:(v){
+                  e.port('io:error').send(v);
+                  e.port('io:stream').endStream();
+                });
+             }
           });
 
           e.port('io:stream').tapEnd((n){
@@ -214,10 +235,6 @@ class Fs{
           e.port('io:writekick').tap((n){
             e.port('io:path').pause();
             e.port('io:stream').resume();
-          });
-
-          e.port('io:path').tap((n){
-              e.port('io:writekick').send(true);
           });
 
           e.port('io:stream').tapEnd((n){
@@ -248,7 +265,9 @@ class Fs{
           var conf = e.sd.get('conf');
 
           e.port('io:stream').tapOnce((n){
-            e.sd.update('writer',e.sd.get('fs').openWrite());
+             if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
+                e.sd.update('writer',e.sd.get('fs').openWrite());
+             }
           });
 
        });
@@ -279,7 +298,7 @@ class Fs{
 
           e.sd.update('init',(n){
             try{
-              e.sd.update('fs',GuardedFile.create(conf.get('file'),true));
+              e.sd.update('fs',GuardedFile.use(conf.get('file'),true));
             }catch(f){
               e.port('io:error').send(f);
             }
