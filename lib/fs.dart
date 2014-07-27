@@ -1,6 +1,7 @@
 library spark_server;
 
 import 'dart:io';
+import 'dart:convert';
 import 'dart:async';
 import 'package:sparkflow/sparkflow.dart';
 import 'package:guardedfs/guardedfs.dart';
@@ -186,7 +187,7 @@ class Fs{
 
 
           e.port('io:stream').tapData((n){
-            e.sd.get('writer').write(n.data);
+            e.sd.get('writer').writeAll(Valids.isList(n.data) ? n.data : [UTF8.encode(n.data)]);
           });
 
           e.port('io:stream').tapEnd((n){
