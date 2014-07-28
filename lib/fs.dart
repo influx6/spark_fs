@@ -185,7 +185,6 @@ class Fs{
 
           var conf = e.sd.get('conf');
 
-
           e.port('io:stream').tapData((n){
             e.sd.get('writer').writeAll(Valids.isList(n.data) ? n.data : [UTF8.encode(n.data)]);
           });
@@ -280,16 +279,11 @@ class Fs{
 
           var conf = e.sd.get('conf');
 
-          e.sd.update('init',(n){
-            try{
-              e.sd.update('fs',GuardedFile.use(conf.get('file'),false));
-            }catch(f){
-              e.port('io:error').send(f);
-            }
-          });
-
           e.port('io:stream').tapOnce((n){
-            e.sd.update('writer',e.sd.get('fs').openAppend());
+            print(e.sd);
+             if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
+                e.sd.update('writer',e.sd.get('fs').openAppend());
+             }
           });
 
        });
