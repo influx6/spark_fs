@@ -36,6 +36,7 @@ class Fs{
           e.makeInport('io:conf');
           e.makeInport('io:path');
           e.makeOutport('io:error');
+          e.makeOutport('io:vfs');
           e.makeOutport('io:ended');
 
           e.port('io:path').forceCondition(Valids.isString);
@@ -63,6 +64,7 @@ class Fs{
 
           e.port('io:kick').tap((n){
             e.sd.get('init')(n);
+            e.send('io:vfs',e.sd.get('fs'));
           });
        });
 
@@ -186,11 +188,14 @@ class Fs{
           var conf = e.sd.get('conf');
 
           e.port('io:stream').tapData((n){
-            e.sd.get('writer').writeAll(Valids.isList(n.data) ? n.data : [UTF8.encode(n.data)]);
+            if(e.sd.has('writer')){
+              if(Valids.isList(n.data)) e.sd.get('writer').writeAll(n.data);
+              if(!Valids.isList(n.data)) e.sd.get('writer').write(n.data);
+            }
           });
 
           e.port('io:stream').tapEnd((n){
-            e.sd.get('writer').close();
+            if(e.sd.has('writer')) e.sd.get('writer').close();
           });
 
        });
@@ -254,6 +259,7 @@ class Fs{
           e.port('io:stream').forceCondition(Valids.isString);
 
           e.port('io:stream').tapData((n){
+            if(e.sd.has('fs'))
             e.sd.get('fs').createNewDir(n.data,true).then((dir){
                 e.port('io:stream').endStream();
             });
@@ -280,7 +286,6 @@ class Fs{
           var conf = e.sd.get('conf');
 
           e.port('io:stream').tapOnce((n){
-            print(e.sd);
              if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
                 e.sd.update('writer',e.sd.get('fs').openAppend());
              }
