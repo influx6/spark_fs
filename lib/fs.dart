@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:sparkflow/sparkflow.dart';
 import 'package:guardedfs/guardedfs.dart';
 import 'package:hub/hub.dart';
+import 'package:path/path.dart' as paths;
 
 export 'package:guardedfs/guardedfs.dart';
 export 'package:sparkflow/sparkflow.dart';
@@ -13,9 +14,123 @@ export 'package:sparkflow/sparkflow.dart';
 
 class Fs{
 
+  static RegExp pathChar = new RegExp(r'..|\+|/+|.');
+  static RegExp pathWrd = new RegExp(r'^\s*?\S*?\w+\d*?\D*?\W*?\s*?\w*?$');
+
+  static String bitShiftPath(String uri){
+    var pt = paths.split(paths.normalize(uri));
+    Enums.eachAsync(pt,(e,i,o,fn){
+      if(pathChar.hasMatch(e)) pt[i] ="";
+      if(pathWrd.hasMatch(e)){
+          pt[i] = "";
+          return fn(true);
+      }
+      return fn(null);
+    });
+    return paths.normalize(paths.joinAll(pt));
+  }
+
   static void register(){
       
      Sparkflow.createRegistry('spark.fs',(r){
+
+       r.addMutation('protocols/_pathMods',(v){
+
+          v.sd.update('conf',MapDecorator.useMap({ 'lock': false }));
+
+          var conf = v.sd.get('conf');
+
+          v.makeInport('io:root',meta: { 'desc':'takes the root paths to prefix all paths with' });
+          v.makeInport('io:paths', meta: {'desc': 'takes the paths to prefix'});
+          v.makeInport('io:conf', meta: {'desc': 'allows configuration of behaviour'});
+          v.makeOutport('io:mods',meta: {'desc': 'returns the new prefix ports'});
+
+          v.port('io:paths').forceCondition(Valids.isString);
+          v.port('io:conf').forceCondition(Valids.isMap);
+          v.port('io:root').forceCondition(Valids.isString);
+          v.port('io:mods').forceCondition(Valids.isString);
+
+          v.port('io:paths').pause();
+
+          v.tap('io:conf',(n){
+            conf.storage = n.data;
+            if(!conf.has('lock')) conf.update('lock',false);
+          });
+
+          v.tap('io:root',(n){
+            v.sd.update('root',n.data);
+            v.sd.update('nr',paths.normalize(n.data));
+            v.port('io:paths').resume();
+          });
+
+          v.port('io:mods').forceCondition((n){
+            if(Valids.isFalse(conf.get('lock'))) return true;
+            if(paths.isWithin(v.sd.get('nr'),n)) return true;
+            return false;
+          });
+
+       });
+
+       r.addBaseMutation('protocols/_pathMods','protocols/pathPrefix',(v){
+          v.meta('desc','checks where a path is a file of not');
+
+          v.tap('io:paths',(n){
+            var pt = n.data, mod = paths.join(v.sd.get('nr'),paths.normalize(pt));
+            v.port('io:mods').send(paths.normalize(mod));
+          });
+
+       });
+
+       r.addBaseMutation('protocols/_pathMods','protocols/pathModShift',(v){
+          v.meta('desc','checks where a path is a file of not');
+
+          v.tap('io:paths',(n){
+            var mod = [v.sd.get('nr')];
+            mod.add(Fs.bitShiftPath(n.data));
+            v.port('io:mods').send(paths.joinAll(mod));
+          });
+
+       });
+
+       r.addMutation('protocols/isFile',(v){
+          v.meta('desc','checks where a path is a file of not');
+
+          v.makeInport('io:path');
+          v.makeOutport('io:yes');
+          v.makeOutport('io:no');
+
+          v.port('io:path').forceCondition(Valids.isString);
+
+          v.tap('io:path',(n){
+             GuardedFS.isFile(n.data).then((_){
+               v.send('io:yes',n);
+             },onError: (e){
+               v.send('io:no',e);
+             }).catchError((e){
+               v.send('io:no',e);
+             });
+          });
+       });
+
+       r.addMutation('protocols/isDirectory',(v){
+          v.meta('desc','checks where a path is a directory of not');
+
+          v.makeInport('io:path');
+          v.makeOutport('io:yes');
+          v.makeOutport('io:no');
+
+          v.port('io:path').forceCondition(Valids.isString);
+
+          v.tap('io:path',(n){
+             GuardedFS.isDir(n.data).then((_){
+               v.send('io:yes',n);
+             },onError: (e){
+               v.send('io:no',e);
+             }).catchError((e){
+               v.send('io:no',e);
+             });
+          });
+       });
 
        r.addMutation('protocols/_fs',(e){
           e.meta('desc','component to handle all fs operations');
@@ -29,7 +144,7 @@ class Fs{
 
           e.sd.add('conf',MapDecorator.create());
 
-          var conf = e.sd.get('conf');
+          var conf = e.sd.get('conf'), sample;
           
           e.createSpace('io');
           e.makeInport('io:kick');
@@ -63,7 +178,10 @@ class Fs{
           });
 
           e.port('io:kick').tap((n){
-            e.sd.get('init')(n);
+            if(Valids.exist(sample)){
+              if(!Valids.match(sample,e.sd.get('conf').core)) e.sd.get('init')(n);
+            }else e.sd.get('init')(n);
+            sample = e.sd.get('conf').core;
             e.send('io:vfs',e.sd.get('fs'));
           });
        });
@@ -205,6 +323,8 @@ class Fs{
 
           var conf = e.sd.get('conf');
 
+          e.makeInport('io:readPath',meta:{'desc':'reads the path relative to the directory'});
+
           e.sd.update('init',(n){
             try{
               e.sd.update('fs',GuardedDirectory.create(conf.get('file'),conf.get('readOnly'),conf.get('lockRoot')));
@@ -213,12 +333,19 @@ class Fs{
             }
           });
 
+          e.port('io:readPath').forceCondition(Valids.isString);
+          e.port('io:readPath').pause();
+
+          e.tap('io:kick',(n){
+            e.port('io:readPath').resume();
+          });
+
           e.port('io:readkick').tap((n){
              if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
                 e.port('io:path').pause();
                  var count = 0;
                  e.sd.get('fs').list().listen((f){
-                   e.port('io:stream').beginGroup(count);
+                   e.port('io:stream').beginGroup(e.sd.get('file'));
                    e.port('io:stream').send(f);
                    e.port('io:stream').endGroup(count);
                    count += 1;
@@ -228,6 +355,26 @@ class Fs{
                   e.port('io:error').send(f);
                   e.port('io:stream').endStream();
                 });
+             }
+          });
+
+          e.port('io:readPath').tap((n){
+             if(e.sd.has('fs') && Valids.exist(e.sd.get('fs'))){
+                e.port('io:path').pause();
+                 var count = 0;
+                 e.sd.get('fs').openNewDir(paths.normalize(n.data)).then((dir){
+                      dir.list().listen((f){
+                         e.port('io:stream').beginGroup(dir.path);
+                         e.port('io:stream').send(f);
+                         e.port('io:stream').endGroup(count);
+                         count += 1;
+                      },onDone:(){
+                        e.port('io:stream').endStream();
+                      },onError:(f){
+                        e.port('io:error').send(f);
+                        e.port('io:stream').endStream();
+                      });
+                 }).catchError((e) => e.port('io:error').send(e));
              }
           });
 
